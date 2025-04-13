@@ -2,7 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import * as jsonc from 'jsonc-parser';
 import process from 'process';
-import { type CategoryProps, type ToolProps, type Changelog } from '@/lib/type';
+import { type CategoryProps, type ToolProps, type Changelog, type GameCompanyProps, type GameSeriesProps } from '@/lib/type';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+import { parse } from 'jsonc-parser';
+import { GameCompany, GameSeries } from './type';
 
 
 // 读取 categories 数据
@@ -85,4 +89,70 @@ export function getChangelog(): Changelog {
     const dataPath = path.join(process.cwd(), 'data', 'json', 'changelog.jsonc');
     const dataList = jsonc.parse(fs.readFileSync(dataPath, 'utf8')) as Changelog;
     return dataList;
+}
+
+// 获取所有游戏公司
+export function getGameCompanies(locale: string): GameCompanyProps[] {
+  const companiesPath = path.join(process.cwd(), 'data', 'json', locale, 'games', 'companies.jsonc');
+  const data = jsonc.parse(fs.readFileSync(companiesPath, 'utf8'));
+  return data.companies;
+}
+
+// 获取特定公司的游戏系列
+export function getGameSeries(companyLink: string, locale: string): GameSeriesProps[] {
+  const seriesPath = path.join(process.cwd(), 'data', 'json', locale, 'games', 'game-series.jsonc');
+  const data = jsonc.parse(fs.readFileSync(seriesPath, 'utf8'));
+  return data[companyLink] || [];
+}
+
+// 搜索游戏系列
+export function searchGameSeries(keyword: string, locale: string): GameSeriesProps[] {
+  const seriesPath = path.join(process.cwd(), 'data', 'json', locale, 'games', 'game-series.jsonc');
+  const data = jsonc.parse(fs.readFileSync(seriesPath, 'utf8'));
+  const results: GameSeriesProps[] = [];
+
+  // 遍历所有公司的游戏系列
+  Object.entries(data).forEach(([companyLink, series]) => {
+    (series as GameSeriesProps[]).forEach(game => {
+      if (
+        game.name.toLowerCase().includes(keyword.toLowerCase()) ||
+        game.description.toLowerCase().includes(keyword.toLowerCase()) ||
+        (game.genres && game.genres.some(genre => 
+          genre.toLowerCase().includes(keyword.toLowerCase())
+        ))
+      ) {
+        results.push({
+          ...game,
+          company: companyLink
+        });
+      }
+    });
+  });
+
+  return results;
+}
+
+export async function getGameSeriesByCompany(companyLink: string, locale: string): Promise<GameSeries[]> {
+  const filePath = join(process.cwd(), 'data', 'json', locale, 'games', 'series', `${companyLink}.jsonc`);
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    return parse(content) as GameSeries[];
+  } catch (error) {
+    console.error(`Error reading game series for company ${companyLink}:`, error);
+    return [];
+  }
+}
+
+export async function getGameSeriesDetail(link: string, locale: string): Promise<GameSeries | null> {
+  const companies = await getGameCompanies(locale);
+  
+  for (const company of companies) {
+    const series = await getGameSeriesByCompany(company.link, locale);
+    const foundSeries = series.find(s => s.link === link);
+    if (foundSeries) {
+      return foundSeries;
+    }
+  }
+  
+  return null;
 } 

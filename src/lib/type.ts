@@ -34,3 +34,29 @@ export type ChangelogItem = {
 export type Changelog = {
   [locale: string]: ChangelogItem[];
 }
+
+export interface GameCompany {
+  name: string;
+  logo_url: string;
+  description: string;
+  link: string;
+  founded_year: number;
+  headquarters: string;
+  website: string;
+}
+
+export interface GameSeries {
+  name: string;
+  cover_url: string;
+  description: string;
+  link: string;
+  genres: string[];
+  website: string;
+}
+
+export interface GameListProps {
+  company: GameCompany;
+  series: GameSeries[];
+  locale: string;
+  showMoreLink?: boolean;
+}
